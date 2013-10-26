@@ -3,7 +3,8 @@
 #include <string.h>
 #include <errno.h>
 
-#define VERSION_NO "0.0.2"
+#define VERSION_NO "0.0.3"
+#define BUFFER_LENGTH 57
 
 void usage() {
 	printf("Usage: filedez <file_to_dez>\n");
@@ -17,19 +18,40 @@ void crap(char *msg) {
 	exit(1);
 }
 
+// Calculate a bit shift for the provided char position
+int get_char_shift(int pos, int buflen) {
+	int shift;
+	if (pos % 2 == 1)
+		shift = (0 + ((pos - 1)/2));
+	else
+		shift = (buflen - ((pos/2)));
+	return shift;
+}
+
+void encrypt_char(char *c, int pos, int buflen) {
+	int shift = get_char_shift(pos, buflen);
+	printf("Shifting char '%c' %i up", *c, shift);
+	*c = (*c >> 1) + shift; // bit shift right, add char shift
+	printf(" = %c\n", *c);
+}
+
 // Encrypt a buffer of provided length
 void encrypt_buffer(char *buffer, int len) {
-
+	printf("\nEncrypting buffer '%s'\n", buffer);
+	int c_no;
+	for (c_no = 0; c_no < len; c_no++) {
+		if (buffer[c_no] == '\0')
+			return;
+		encrypt_char(&buffer[c_no], c_no, len);
+	}
 }
 
 // Encrypt source file, output to destination
 void encrypt_file(FILE *src, FILE *dest) {
 	printf("Encrypting file...\n");
-	int buflen;
-	char buf[buflen];
-	while (fgets(buf, buflen, src) != NULL) {
-		printf("Encrypting buffer '%s'\n", buf);
-		encrypt_buffer(buf, buflen);
+	char buf[BUFFER_LENGTH];
+	while (fgets(buf, BUFFER_LENGTH, src) != NULL) {
+		encrypt_buffer(buf, BUFFER_LENGTH - 1); // -1 to drop terminator
 		fputs(buf, dest);
 	}
 }
