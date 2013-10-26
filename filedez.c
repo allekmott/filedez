@@ -30,37 +30,67 @@ int get_char_shift(int pos, int buflen) {
 	return shift;
 }
 
-void encrypt_char(char *c, int pos, int buflen) {
+void crypt_char(char *c, int pos, int buflen) {
+	if (*c == '\0')
+		return;
 	int shift = get_char_shift(pos, buflen);
-	//printf("Shifting char '%c' %i up", *c, shift);
-	*c = (*c >> 1) + shift; // bit shift right, add char shift
-	//printf(" = %c\n", *c);
+	printf("Before: '%c' = 0x%x; ", *c, (int) *c);
+	if (decrypt)
+		*c = (*c << 1) - shift;
+	else
+		*c = (*c >> 1) + shift; // bit shift right, add char shift
+
+	printf("After: '%c' = 0x%x\n", *c, (int) *c);
 }
 
 // Encrypt a buffer of provided length
-void encrypt_buffer(char *buffer, int len) {
-	printf("\nEncrypting buffer '%s'\n", buffer);
+void crypt_buffer(char *buffer, int len) {
+	if (decrypt)
+		printf("\nDecrpyting buffer '%s'\n", buffer);
+	else
+		printf("\nEncrypting buffer '%s'\n", buffer);
+
 	int c_no;
-	for (c_no = 0; c_no < len; c_no++) {
-		if (buffer[c_no] == '\0')
-			return;
-		encrypt_char(&buffer[c_no], c_no, len);
-	}
+	for (c_no = 0; c_no < len; c_no++)
+		crypt_char(&buffer[c_no], c_no, len);
 }
 
 // Encrypt source file, output to destination
-void encrypt_stream(int src_fd, int dest_fd) {
-	printf("Encrypting file...\n");
+void crypt_stream(int src_fd, int dest_fd) {
+	if (decrypt)
+		printf("Decrypting file...\n");
+	else
+		printf("Encrypting file...\n");
 	char buf[BUFFER_LENGTH];
-	while (read(src_fd, buf, BUFFER_LENGTH) != 0) {
-		encrypt_buffer(buf, BUFFER_LENGTH);
-		write(dest_fd, buf, BUFFER_LENGTH);
+	char *current = buf;
+	int cur_no = 0;
+	while (read(src_fd, current, 1) != 0) {
+		if (*current == '\0')
+			continue;
+		if ((cur_no + 1) == BUFFER_LENGTH) {
+			crypt_buffer(buf, BUFFER_LENGTH);
+			write(dest_fd, buf, BUFFER_LENGTH);
+			memset(buf, 0, BUFFER_LENGTH);
+			current = buf;
+			cur_no = 0;
+		}
+		current++;
+		cur_no++;
+	}
+	if (cur_no != 0) {
+		printf("Chars remaining: %i\n", cur_no);
+		crypt_buffer(buf, cur_no);
+		write(dest_fd, buf, cur_no);
 	}
 }
 
-void encrypt(int src_fd, int dest_fd) {
-	printf("\nBeginning encryption phase...\n");
-	encrypt_stream(src_fd, dest_fd);
+void crypt(int src_fd, int dest_fd) {
+	if (decrypt)
+		printf("\nBeginning decryption...\n");
+	else
+		printf("\nBeginning encryption...\n");
+
+	crypt_stream(src_fd, dest_fd);
 	printf("\n");
 }
 
@@ -76,9 +106,10 @@ void open_src_file(char *filename, int *src_fd) {
 }
 
 void open_dest_file(char *filename, int *dest_fd) {
+	char *ext = (decrypt) ? ".undez" : ".dez";
 	char new_filename[100];
 	strcpy(new_filename, filename);
-	strcat(new_filename, ".dez");
+	strcat(new_filename, ext);
 	printf("New filename: %s\n", new_filename);
 
 	char nf_err_str[150];
@@ -118,6 +149,11 @@ void manage_args(int argc, char *argv[], int *src_fd, int *dest_fd) {
 				if (argv[2] != "")
 					open_src_file(argv[2], src_fd);
 				break;
+			case 'd':
+				printf("Decrypting.\n");
+				decrypt = 1;
+				file_stuff(argv[2], src_fd, dest_fd);
+				break;
 			default: usage();
 		}
 	} else
@@ -129,7 +165,7 @@ int main(int argc, char *argv[]) {
 		int src_fd = 0, dest_fd = 1;
 		manage_args(argc, argv, &src_fd, &dest_fd);
 		printf("FileDez v%s\n", VERSION_NO);
-		encrypt(src_fd, dest_fd);
+		crypt(src_fd, dest_fd);
 	} else
 		usage();
 	

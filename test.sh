@@ -3,20 +3,28 @@
 echo "Woo, done building..."
 echo
 
-if [ ! -e lol.txt ]; then
-	echo "No lol.txt, creating..."
-	echo lolololololololololololololololololol > lol.txt
-fi
-
-if [ -e lol.txt.dez ]; then
-	echo "Removing lol.txt.dez"
+if [ -e filedez.c.dez ]; then
+	echo "Removing filedez.c.dez"
 	rm lol.txt.dez
 fi
 
+if [ -e filedez.c.dez.undez ]; then
+	echo "Removing filedez.c.dez.undez"
+fi
+
+echo
+echo "Testing: ./filedez filedez.c"
 echo
 
+./filedez filedez.c
+clear
 
-echo "Testing: ./filedez lol.txt"
+echo
+echo "Testing: ./filedez -d filedez.c.dez"
 echo
 
-./filedez lol.txt
+./filedez -d filedez.c.dez
+clear
+
+echo "Undezzed filedez.c:"
+cat filedez.c.dez.undez
