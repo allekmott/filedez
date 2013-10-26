@@ -75,8 +75,9 @@ void manage_args(int argc, char *argv[], int *src_fd, int *dest_fd) {
 				break;
 			default: usage();
 		}
-	} else
+	} else {
 		file_stuff(argv[1], src_fd, dest_fd);
+	}
 }
 
 int main(int argc, char *argv[]) {
@@ -85,8 +86,9 @@ int main(int argc, char *argv[]) {
 		int src_fd = 0, dest_fd = 1;
 		manage_args(argc, argv, &src_fd, &dest_fd);
 		dc_crypt(src_fd, dest_fd, decrypt);
-	} else
+	} else {
 		usage();
+	}
 	
 	cleanup();
 }
