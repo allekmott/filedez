@@ -3,8 +3,10 @@
 #include <string.h>
 #include <errno.h>
 
-#define VERSION_NO "0.0.3"
+#define VERSION_NO "0.0.4"
 #define BUFFER_LENGTH 57
+
+int decrypt = 0;
 
 void usage() {
 	printf("Usage: filedez <file_to_dez>\n");
@@ -13,7 +15,7 @@ void usage() {
 
 // Crap out an error message and exit
 void crap(char *msg) {
-	fprintf(stderr, "An error occurred: %s\nError stuff: %s\n",
+	fprintf(stderr, "An error occurred: %s\nError string: %s\n",
 		msg, strerror(errno));
 	exit(1);
 }
@@ -30,9 +32,9 @@ int get_char_shift(int pos, int buflen) {
 
 void encrypt_char(char *c, int pos, int buflen) {
 	int shift = get_char_shift(pos, buflen);
-	printf("Shifting char '%c' %i up", *c, shift);
+	//printf("Shifting char '%c' %i up", *c, shift);
 	*c = (*c >> 1) + shift; // bit shift right, add char shift
-	printf(" = %c\n", *c);
+	//printf(" = %c\n", *c);
 }
 
 // Encrypt a buffer of provided length
@@ -47,52 +49,89 @@ void encrypt_buffer(char *buffer, int len) {
 }
 
 // Encrypt source file, output to destination
-void encrypt_file(FILE *src, FILE *dest) {
+void encrypt_stream(int src_fd, int dest_fd) {
 	printf("Encrypting file...\n");
 	char buf[BUFFER_LENGTH];
-	while (fgets(buf, BUFFER_LENGTH, src) != NULL) {
-		encrypt_buffer(buf, BUFFER_LENGTH - 1); // -1 to drop terminator
-		fputs(buf, dest);
+	while (read(src_fd, buf, BUFFER_LENGTH) != 0) {
+		encrypt_buffer(buf, BUFFER_LENGTH);
+		write(dest_fd, buf, BUFFER_LENGTH);
 	}
 }
 
-void run(char *filename) {
+void encrypt(int src_fd, int dest_fd) {
+	printf("\nBeginning encryption phase...\n");
+	encrypt_stream(src_fd, dest_fd);
+	printf("\n");
+}
+
+// Source file, destination file
+FILE *src_file, *dest_file; 
+
+void open_src_file(char *filename, int *src_fd) {
 	printf("File: %s\n", filename);
-
-	FILE *file;
-	if ((file = fopen(filename, "r")) == 0)
-		crap("File shiz don't be existin'");
-
+	if ((src_file = fopen(filename, "r")) == 0)
+		crap("Input file shiz don't be existin'");
 	printf("Opened stream to %s\n", filename);
+	*src_fd = fileno(src_file);
+}
 
+void open_dest_file(char *filename, int *dest_fd) {
 	char new_filename[100];
 	strcpy(new_filename, filename);
 	strcat(new_filename, ".dez");
-	
 	printf("New filename: %s\n", new_filename);
-
-	FILE *new_file;
 
 	char nf_err_str[150];
 	sprintf(nf_err_str, "Couldn't create %s\n", new_filename);
 
-	if ((new_file = fopen(new_filename, "w+")) == 0)
+	if ((dest_file = fopen(new_filename, "w+")) == 0)
 		crap(nf_err_str);
 
 	printf("File %s opened successfully.\n", new_filename);
+	
+	*dest_fd = fileno(dest_file);
+}
 
-	printf("\nBeginning encryption phase...\n");
-	encrypt_file(file, new_file);
+void file_stuff(char *filename, int *src_fd, int *dest_fd) {
+	open_src_file(filename, src_fd);
+	open_dest_file(filename, dest_fd);
+}
 
-	fclose(file);
-	fclose(new_file);
+void close_files() {
+	if (src_file != NULL)
+		fclose(src_file);
+	if (dest_file != NULL)
+		fclose(dest_file);
+}
+
+void cleanup() {
+	printf("Cleaning up.\n");
+	close_files();
+}
+
+void manage_args(int argc, char *argv[], int *src_fd, int *dest_fd) {
+	if (argv[1][0] == '-') {
+		switch (argv[1][1]) {
+			case 'c':
+				printf("Output set to console.\n");
+				*dest_fd = 1;
+				if (argv[2] != "")
+					open_src_file(argv[2], src_fd);
+				break;
+			default: usage();
+		}
+	} else
+		file_stuff(argv[1], src_fd, dest_fd);
 }
 
 int main(int argc, char *argv[]) {
-	printf("FileDez v%s\n", VERSION_NO);
-	if (argc > 1)
-		run(argv[1]);
-	else
+	if (argc > 1) {
+		int src_fd = 0, dest_fd = 1;
+		manage_args(argc, argv, &src_fd, &dest_fd);
+		printf("FileDez v%s\n", VERSION_NO);
+		encrypt(src_fd, dest_fd);
+	} else
 		usage();
 	
+	cleanup();
 }
