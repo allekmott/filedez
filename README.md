@@ -1,4 +1,4 @@
 filedez
 =======
 
-Simple file encryption/decryption.
+Simple (and very, very stupid (don't use this)) file encryption/decryption.
